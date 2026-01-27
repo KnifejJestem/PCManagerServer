@@ -1,5 +1,5 @@
 
-# Import librarier
+# Import libraries
 
 import json
 import clr
@@ -68,7 +68,7 @@ def get_stats():
 
                 # Clock Speed
 
-                elif s_type == "Clock" and "Cores" in s_name:
+                elif s_type == "Clock" and "Cores (Average)" in s_name:
                     stats["cpu"]["clock_speed"] = round(float(sensor.Value or 0), 1)
 
                 # Voltage
@@ -156,7 +156,7 @@ def get_stats():
 
     return stats
 
-async def stats_server(websocket, path):
+async def stats_server(websocket):
     while True:
         stats = await asyncio.to_thread(get_stats)
         try:
@@ -168,7 +168,7 @@ async def stats_server(websocket, path):
             break
 
 async def main():
-    async with websockets.serve(stats_server, "0.0.0.0", 8765):
+    async with websockets.serve(stats_server, "0.0.0.0", 8765, ping_interval=None):
         await asyncio.Future()  # run forever
 
 if __name__ == "__main__":
