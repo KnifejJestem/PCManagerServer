@@ -1,6 +1,6 @@
 # 🖥️ PC Manager Server
 
-#### Lighweight websockets server written in Python & Rust to get PC data to the PC Manager App
+#### Lighweight websockets server written in Python to get PC data and send it to the PC Manager App
 
 ---
 
