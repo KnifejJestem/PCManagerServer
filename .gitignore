@@ -1,2 +1,5 @@
 .ruff_cache/
 .vscode/
+rust_server/target/
+rust_server/Cargo.lock
+libs/PresentMon-2.4.1-x64.exe
