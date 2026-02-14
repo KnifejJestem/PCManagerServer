@@ -4,16 +4,12 @@ import asyncio
 import json
 import os
 import platform
+import threading
+import time
+import urllib.request
 
 import psutil
 import websockets
-import psutil
-import urllib.request
-import threading
-import time
-
-os.environ["AMDSMI_GPU_METRICS_CACHE_MS"] = "200"
-from amdsmi import *  # type: ignore
 
 # Get OS info
 
@@ -21,6 +17,10 @@ osname = platform.system().strip()
 osver = platform.release().strip()
 
 IS_WINDOWS = "windows" in osname.lower()
+
+if not IS_WINDOWS:
+    os.environ["AMDSMI_GPU_METRICS_CACHE_MS"] = "200"
+    from amdsmi import *  # type: ignore
 
 if IS_WINDOWS:
     import clr
@@ -46,6 +46,7 @@ cpu_hw = None
 gpu_hw = None
 ram_hw = None
 
+
 def check_and_download_presentmon():
     url = "https://github.com/GameTechDev/PresentMon/releases/download/v2.4.1/PresentMon-2.4.1-x64.exe"
     presentmon_path = os.path.join(libs_dir, "PresentMon-2.4.1-x64.exe")
@@ -55,8 +56,11 @@ def check_and_download_presentmon():
         return False
     else:
         return True
-    
-check_and_download_presentmon()
+
+
+if IS_WINDOWS:
+    check_and_download_presentmon()
+
 
 def find_hardware():
     if IS_WINDOWS:
@@ -309,6 +313,8 @@ def get_stats():
             print(e)
 
     return stats
+
+
 async def get_benchmark_stats(process):
     print("getbechstats running")
     global lines
@@ -318,7 +324,9 @@ async def get_benchmark_stats(process):
     try:
         while True:
             try:
-                line_raw = await asyncio.wait_for(process.stdout.readline(), timeout=0.02)
+                line_raw = await asyncio.wait_for(
+                    process.stdout.readline(), timeout=0.02
+                )
                 if not line_raw:
                     break
                 line = line_raw.decode().strip()
@@ -326,26 +334,26 @@ async def get_benchmark_stats(process):
                 if parts:
                     new_data_found = True
                     # 1'Application',
-                    # 2'ProcessID', 
-                    # 3'SwapChainAddress', 
-                    # 4'PresentRuntime', 
+                    # 2'ProcessID',
+                    # 3'SwapChainAddress',
+                    # 4'PresentRuntime',
                     # 5'SyncInterval',
-                    # 6'PresentFlags', 
-                    # 7'AllowsTearing', 
-                    # 8'PresentMode', 
-                    # 9'CPUStartTime', 
-                    # 10'FrameTime', 
+                    # 6'PresentFlags',
+                    # 7'AllowsTearing',
+                    # 8'PresentMode',
+                    # 9'CPUStartTime',
+                    # 10'FrameTime',
                     # 11'CPUBusy',
-                    # 12'CPUWait', 
-                    # 13'GPULatency', 
-                    # 14'GPUTime', 
-                    # 15'GPUBusy', 
-                    # 16'GPUWait', 
+                    # 12'CPUWait',
+                    # 13'GPULatency',
+                    # 14'GPUTime',
+                    # 15'GPUBusy',
+                    # 16'GPUWait',
                     # 17'DisplayLatency',
-                    # 18'DisplayedTime', 
-                    # 19'AnimationError', 
+                    # 18'DisplayedTime',
+                    # 19'AnimationError',
                     # 20'AnimationTime',
-                    # 21'MsFlipDelay', 
+                    # 21'MsFlipDelay',
                     # 22'AllInputToPhotonLatency',
                     # 23'ClickToPhotonLatency'
 
@@ -355,6 +363,7 @@ async def get_benchmark_stats(process):
             pass
     except Exception as e:
         print(f"Error getting benchmark stats: {e}")
+
 
 async def get_app_stats(app: str):
     if not app:
@@ -366,22 +375,32 @@ async def get_app_stats(app: str):
         stats["benchmarking"]["frametime"] = frametime
 
 
-
 async def stats_server(websocket):
-    cmd = [os.path.join(libs_dir, "PresentMon-2.4.1-x64.exe"), "--output_stdout", "--no_console_stats", "--v2_metrics"]
-    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    cmd = [
+        os.path.join(libs_dir, "PresentMon-2.4.1-x64.exe"),
+        "--output_stdout",
+        "--no_console_stats",
+        "--v2_metrics",
+    ]
+    process = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
     print("starting getbenchstats")
     benchmark_start = asyncio.create_task(get_benchmark_stats(process))
     while True:
         try:
             await websocket.send(json.dumps(stats))
-            print(f"\n -------------------------\n Sent stats: {stats} \n -------------------------\n")
+            print(
+                f"\n -------------------------\n Sent stats: {stats} \n -------------------------\n"
+            )
             await asyncio.sleep(1)
             recv = await websocket.recv()
             if "app" in recv:
                 app = str(recv.split(",")[1].strip())
                 stats["benchmarking"]["is_running"] = True
-                print(f"\n -------------------------\n {await get_app_stats(app)} \n -------------------------\n")
+                print(
+                    f"\n -------------------------\n {await get_app_stats(app)} \n -------------------------\n"
+                )
             if not app:
                 stats["benchmarking"]["is_running"] = False
         except Exception as e:
